@@ -2,7 +2,7 @@
 
 A single-file Python deployment manager for self-hosted Linux servers. Handles full deploy pipelines for FastAPI, Django, Node.js API, Next.js, and React projects — including rsync, dependency install, builds, systemd service management, nginx config generation, backups, rollbacks, and secret rotation.
 
-NOTE : I made the initial version myself with git pull , rsync + directory exclusion , dependencies install , systemd restar , permission change and basic basic things ( it was perfect for my purpose ) after that i extended it using AI tested basic things but give it  a read before using.
+##### NOTE : I made the initial version myself with git pull , rsync + directory exclusion , dependencies install , systemd restar , permission change and basic basic things ( it was perfect for my purpose ) after that i extended it using AI tested basic things but give it  a read before using.
 ---
 
 ## Requirements

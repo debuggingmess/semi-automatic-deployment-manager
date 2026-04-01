@@ -226,7 +226,7 @@ fastapi | django | node | next | react
  SERVICES & NGINX
  14) Create systemd service  15) View logs
  16) Create nginx config     17) Remove nginx config
- 25) Link service from /srv
+ 25) Link service from /srv  26) Restart nginx
 
  BACKUP
  18) Create backup           19) Rollback
@@ -290,6 +290,8 @@ fastapi | django | node | next | react
                     remove_nginx_config(p)
             elif c == "25":
                 p = choose_project(); p and link_service_file(p)
+            elif c == "26":
+                run_cmd(["systemctl", "restart", "nginx"])
             elif c == "18":
                 p = choose_project(); p and create_backup(p)
             elif c == "19":

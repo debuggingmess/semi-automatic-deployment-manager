@@ -1,10 +1,6 @@
 import os
 
 from deploy_manager.config.settings import (
-    DEFAULT_BUN_BIN,
-    DEFAULT_NODE_BIN,
-    DEFAULT_NPM_BIN,
-    DEFAULT_PNPM_BIN,
     DEPLOY_BASES,
     GLOBAL_RSYNC_EXCLUDES,
     PROJECTS,

@@ -24,7 +24,6 @@ env/
 !.env.example
 
 # Deploy config (local overrides — do not commit)
-deploy_manager/config/settings.bak
 deploy_manager/config/settings.deploy
 
 # Byte-compiled / optimized

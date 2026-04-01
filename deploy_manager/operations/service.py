@@ -1,9 +1,9 @@
 import os
+import pwd
 
 from deploy_manager.config.settings import (
     DEFAULT_NODE_BIN,
     DEFAULT_NPM_BIN,
-    DJANGO_DEFAULT_WSGI,
     SERVICE_DIR,
     SYSTEMD_DIR,
 )
@@ -42,18 +42,44 @@ def _build_unit_lines(description, user, working_dir, exec_start, env_file=None,
     return "\n".join(lines) + "\n"
 
 
-def _build_compose_unit(description, user, working_dir, exec_start, exec_stop, env_file=None):
-    lines = [
-        "[Unit]", f"Description={description}",
-        "After=network.target docker.service",
-        "Requires=docker.service",
-        "",
+def _build_compose_unit(description, user, working_dir, exec_start, exec_stop,
+                        env_file=None, rootless=False):
+    if rootless:
+        try:
+            uid = pwd.getpwnam(user).pw_uid
+        except KeyError:
+            raise DeployError(f"User '{user}' not found on this system.")
+        unit_lines = [
+            "[Unit]", f"Description={description}",
+            "After=network.target",
+            "",
+        ]
+        svc_user_lines = [f"User={user}", f"Group={user}"]
+        extra_env = [
+            f"Environment=DOCKER_HOST=unix:///run/user/{uid}/docker.sock",
+            f"Environment=XDG_RUNTIME_DIR=/run/user/{uid}",
+        ]
+        exec_start_line = f"ExecStart=/bin/bash -c '{exec_start}'"
+        exec_stop_line  = f"ExecStop=/bin/bash -c '{exec_stop}'"
+    else:
+        unit_lines = [
+            "[Unit]", f"Description={description}",
+            "After=network.target docker.service",
+            "Requires=docker.service",
+            "",
+        ]
+        svc_user_lines = ["User=root", "Group=root"]
+        extra_env = []
+        exec_start_line = f"ExecStart=/bin/bash -c '{exec_start}'"
+        exec_stop_line  = f"ExecStop=/bin/bash -c '{exec_stop}'"
+
+    lines = unit_lines + [
         "[Service]", "Type=oneshot", "RemainAfterExit=yes",
-        f"User={user}", f"Group={user}",
+    ] + svc_user_lines + [
         f"WorkingDirectory={working_dir}",
-        f"ExecStart=/bin/bash -c '{exec_start}'",
-        f"ExecStop=/bin/bash -c '{exec_stop}'",
-    ]
+        exec_start_line,
+        exec_stop_line,
+    ] + extra_env
     if env_file:
         lines.append(f"EnvironmentFile={env_file}")
     lines.extend([
@@ -74,13 +100,6 @@ def generate_service_unit(proj, port, entry_point, workers=2, npm_script=None, e
 
     if ptype == "fastapi":
         exec_start = f"{get_venv_bin(proj, 'uvicorn')} {entry_point} --host 0.0.0.0 --port {port} --workers {workers}"
-
-    elif ptype == "django":
-        wsgi_module = entry_point
-        exec_start = f"{get_venv_bin(proj, 'gunicorn')} {wsgi_module} --bind 0.0.0.0:{port} --workers {workers}"
-        settings = proj.get("django_settings", "")
-        if settings:
-            extra_env["DJANGO_SETTINGS_MODULE"] = settings
 
     elif ptype == "nodeapi":
         pkg = proj.get("pkg_cmd", DEFAULT_NPM_BIN)
@@ -104,9 +123,10 @@ def generate_service_unit(proj, port, entry_point, workers=2, npm_script=None, e
 
     elif ptype == "compose":
         compose_file = proj.get("compose_file", "docker-compose.yml")
+        rootless = proj.get("docker_mode", "rootful") == "rootless"
         exec_start = f"docker compose -f {compose_file} up -d --remove-orphans"
         exec_stop  = f"docker compose -f {compose_file} down"
-        return _build_compose_unit(desc, user, dest_dir, exec_start, exec_stop, env_file)
+        return _build_compose_unit(desc, user, dest_dir, exec_start, exec_stop, env_file, rootless)
 
     else:
         raise DeployError(f"Cannot generate service for type: {ptype}")
@@ -171,10 +191,21 @@ def create_service_file(proj, interactive=True):
 
     if ptype == "compose":
         compose_file = proj.get("compose_file", "docker-compose.yml")
+        docker_mode = proj.get("docker_mode", "rootful")
         if interactive:
             cf_input = input(f"  Compose file [{compose_file}]: ").strip()
             if cf_input:
                 compose_file = cf_input
+            print(f"  Docker mode:")
+            print(f"    1) rootful  (requires docker group, uses docker.service)")
+            print(f"    2) rootless (user docker daemon, DOCKER_HOST socket)")
+            mode_input = input(f"  Choice [{'2' if docker_mode == 'rootless' else '1'}]: ").strip()
+            if mode_input == "2":
+                docker_mode = "rootless"
+            elif mode_input == "1":
+                docker_mode = "rootful"
+        # pass docker_mode into proj for generate_service_unit to read
+        proj = {**proj, "docker_mode": docker_mode, "compose_file": compose_file}
     else:
         if interactive:
             port_input = input(f"  Port [{port}]: ").strip()
@@ -185,13 +216,6 @@ def create_service_file(proj, interactive=True):
             default_ep = entry_point or "app.main:app"
             if interactive:
                 ep_input = input(f"  Uvicorn ASGI app [{default_ep}]: ").strip()
-                entry_point = ep_input or default_ep
-            else:
-                entry_point = entry_point or default_ep
-        elif ptype == "django":
-            default_ep = entry_point or proj.get("wsgi_module", DJANGO_DEFAULT_WSGI)
-            if interactive:
-                ep_input = input(f"  Gunicorn WSGI module [{default_ep}]: ").strip()
                 entry_point = ep_input or default_ep
             else:
                 entry_point = entry_point or default_ep
@@ -206,7 +230,7 @@ def create_service_file(proj, interactive=True):
             else:
                 entry_point = entry_point or default_ep
 
-        if is_python_type(proj) and interactive:
+        if ptype == "fastapi" and interactive:
             w_input = input(f"  Workers [{workers}]: ").strip()
             workers = int(w_input) if w_input.isdigit() else workers
 

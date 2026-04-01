@@ -3,7 +3,6 @@ import os
 import sys
 
 from deploy_manager.config.settings import (
-    DJANGO_DEFAULT_WSGI,
     PROJECTS,
     SUPPORTED_TYPES,
     SYSTEMD_DIR,
@@ -19,7 +18,6 @@ from deploy_manager.operations.deploy_steps import (
     step_install_deps,
     step_rsync,
 )
-from deploy_manager.operations.django_ops import step_django_collectstatic, step_django_migrate
 from deploy_manager.operations.git import (
     step_git_checkout_branch,
     step_git_clone,
@@ -104,10 +102,6 @@ def interactive_add_project():
         service = input(f"  Service name [{name}.service]: ").strip() or f"{name}.service"
         entry_point = input("  Uvicorn ASGI app [app.main:app]: ").strip() or "app.main:app"
         build_output = ""
-    elif ptype == "django":
-        service = input(f"  Service name [{name}.service]: ").strip() or f"{name}.service"
-        entry_point = input(f"  WSGI module [{DJANGO_DEFAULT_WSGI}]: ").strip() or DJANGO_DEFAULT_WSGI
-        build_output = ""
     else:
         service = input(f"  Service name [{name}.service]: ").strip() or f"{name}.service"
         entry_point = input("  Entry point [src/index.js]: ").strip() or "src/index.js"
@@ -122,13 +116,6 @@ def interactive_add_project():
         "extra_excludes": extra_excludes,
         "build_required": ptype in ("nextapp", "react"),
     }
-    if ptype == "django":
-        proj["wsgi_module"] = entry_point
-        proj["run_migrate"] = True
-        proj["run_collectstatic"] = True
-        settings = input("  DJANGO_SETTINGS_MODULE [leave empty]: ").strip()
-        if settings:
-            proj["django_settings"] = settings
     if ptype == "react":
         proj["build_output"] = build_output
 
@@ -234,8 +221,7 @@ fastapi | django | node | next | react
   5) git pull                 6) git checkout branch
   7) rsync                    8) Install deps
   9) Build                   10) chown
- 11) Restart service         12) Django migrate
- 13) Django collectstatic
+ 11) Restart service
 
  SERVICES & NGINX
  14) Create systemd service  15) View logs
@@ -286,9 +272,9 @@ fastapi | django | node | next | react
             elif c == "11":
                 p = choose_project(); p and restart_service(p)
             elif c == "12":
-                p = choose_project(); p and step_django_migrate(p)
+                pass
             elif c == "13":
-                p = choose_project(); p and step_django_collectstatic(p)
+                pass
             elif c == "14":
                 p = choose_project(); p and create_service_file(p, interactive=True)
             elif c == "15":

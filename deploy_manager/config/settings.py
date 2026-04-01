@@ -8,7 +8,6 @@
 # SRC_BASE = "/home/linux"
 # DEPLOY_BASES = {
 #     "fastapi": "/srv/fastapi",
-#     "django":  "/srv/django",
 #     "nodeapi": "/srv/nodeapi",
 #     "nextapp": "/srv/nextapp",
 #     "react":   "/srv/react",
@@ -23,18 +22,16 @@
 
 # TYPE_RSYNC_EXCLUDES = {
 #     "fastapi": ["venv/", ".venv/", "*.egg-info/"],
-#     "django":  ["venv/", ".venv/", "*.egg-info/", "staticfiles/", "media/"],
 #     "nodeapi": ["node_modules/", "dist/"],
 #     "nextapp": ["node_modules/", ".next/"],
 #     "react":   ["node_modules/", "build/", "dist/"],
 #     "compose": [],
 # }
 
-# runtime: python | node | static
-# server:  uvicorn | gunicorn | node | npm | nginx-static
+# runtime: python | node | compose
+# server:  uvicorn | node | npm | nginx-static | docker-compose
 # TYPE_META = {
 #     "fastapi": {"runtime": "python",  "server": "uvicorn",        "needs_build": False, "needs_service": True},
-#     "django":  {"runtime": "python",  "server": "gunicorn",       "needs_build": False, "needs_service": True},
 #     "nodeapi": {"runtime": "node",    "server": "node",           "needs_build": False, "needs_service": True},
 #     "nextapp": {"runtime": "node",    "server": "npm",            "needs_build": True,  "needs_service": True},
 #     "react":   {"runtime": "node",    "server": "nginx-static",   "needs_build": True,  "needs_service": False},
@@ -60,8 +57,6 @@
 
 # DEFAULT_SHELL_SERVICE = "/usr/sbin/nologin"
 # DEFAULT_SHELL_HUMAN = "/bin/bash"
-
-# DJANGO_DEFAULT_WSGI = "config.wsgi:application"
 
 # REACT_BUILD_OUTPUT_CANDIDATES = ["build", "dist"]
 
@@ -122,19 +117,6 @@
 #         "rotate_keys": ["SECRET_KEY"],
 #     },
 #     {
-#         "name": "my-django-app",
-#         "type": "django",
-#         "user": "django",
-#         "service": "my-django-app.service",
-#         "wsgi_module": "config.wsgi:application",
-#         "django_settings": "config.settings.production",
-#         "port": 8010,
-#         "domain": "django.example.com",
-#         "run_migrate": True,
-#         "run_collectstatic": True,
-#         "rotate_keys": ["SECRET_KEY", "DB_PASSWORD"],
-#     },
-#     {
 #         "name": "my-react-app",
 #         "type": "react",
 #         "user": "react",
@@ -147,9 +129,12 @@
 #     {
 #         "name": "my-stack",
 #         "type": "compose",
-#         "user": "ubuntu",        # must be in docker group
+#         "user": "ubuntu",
 #         "service": "my-stack.service",
 #         "compose_file": "docker-compose.yml",
+#         "docker_mode": "rootful",   # "rootful" (default) | "rootless"
+#                                     # rootful:  Requires=docker.service, user must be in docker group
+#                                     # rootless: uses DOCKER_HOST=unix:///run/user/<UID>/docker.sock
 #         "port": 8080,
 #         "domain": "stack.example.com",
 #         # only set app_dir + pkg_cmd if you need host-side install/build:

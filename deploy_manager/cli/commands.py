@@ -12,7 +12,6 @@ from deploy_manager.operations.deploy_steps import (
     step_install_deps,
     step_rsync,
 )
-from deploy_manager.operations.django_ops import step_django_collectstatic, step_django_migrate
 from deploy_manager.operations.git import step_git_checkout_branch, step_git_pin_commit, step_git_pull
 from deploy_manager.operations.nginx import nginx_reload
 from deploy_manager.projects.helpers import needs_build, needs_service
@@ -36,10 +35,6 @@ def full_deploy(proj, skip_backup=False, branch=None, commit=None, force_branch=
     steps.append(("Rsync", lambda: step_rsync(proj)))
     steps.append(("Fix Ownership", lambda: fix_ownership(proj)))
     steps.append(("Install Dependencies", lambda: step_install_deps(proj)))
-
-    if ptype == "django":
-        steps.append(("Django Migrate", lambda: step_django_migrate(proj)))
-        steps.append(("Django Collectstatic", lambda: step_django_collectstatic(proj)))
 
     if needs_build(proj):
         steps.append(("Build", lambda: step_build(proj)))

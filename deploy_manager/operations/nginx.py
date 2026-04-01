@@ -36,20 +36,13 @@ def _ensure_nginx_rate_limit_zone():
 
 
 def generate_nginx_proxy_config(domain, port, project_name):
-    safe = re.sub(r"[^a-zA-Z0-9_\-]", "_", project_name)
     return textwrap.dedent(f"""\
-        # {project_name} reverse proxy
-        # {domain} → localhost:{port}  |  Generated: {ts_iso()}
-
-        upstream {safe}_backend {{
-            server 127.0.0.1:{port};
-            keepalive 32;
-        }}
+        # {project_name} — {domain} → 127.0.0.1:{port}
+        # Generated: {ts_iso()}
 
         server {{
-            listen 80;
-            listen [::]:80;
             server_name {domain};
+            client_max_body_size 50m;
 
             add_header X-Frame-Options "SAMEORIGIN" always;
             add_header X-Content-Type-Options "nosniff" always;
@@ -65,36 +58,34 @@ def generate_nginx_proxy_config(domain, port, project_name):
             gzip_comp_level 6;
             gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript image/svg+xml;
 
-            client_max_body_size 50M;
-            proxy_connect_timeout 60s;
-            proxy_send_timeout 60s;
-            proxy_read_timeout 60s;
+            location /.well-known/acme-challenge/ {{
+                root /var/www/html;
+            }}
 
             location / {{
-                proxy_pass http://{safe}_backend;
+                proxy_pass http://127.0.0.1:{port};
                 proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection "upgrade";
                 proxy_set_header Host $host;
                 proxy_set_header X-Real-IP $remote_addr;
                 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
                 proxy_set_header X-Forwarded-Proto $scheme;
-                proxy_set_header Upgrade $http_upgrade;
-                proxy_set_header Connection "upgrade";
-                proxy_buffering on;
-                proxy_buffer_size 16k;
-                proxy_buffers 4 32k;
             }}
 
-            location /nginx-health {{
-                access_log off;
-                return 200 "ok";
-                add_header Content-Type text/plain;
+            listen 80;
+            listen [::]:80;
+        }}
+
+        server {{
+            if ($host = {domain}) {{
+                return 301 https://$host$request_uri;
             }}
 
-            location ~ /\\. {{
-                deny all;
-                access_log off;
-                log_not_found off;
-            }}
+            listen 80;
+            listen [::]:80;
+            server_name {domain};
+            return 404;
         }}
     """)
 

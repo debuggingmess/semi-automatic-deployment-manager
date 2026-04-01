@@ -9,6 +9,7 @@ from deploy_manager.projects.helpers import (
     get_src_dir,
     get_venv_bin,
     get_venv_dir,
+    is_compose_type,
     is_node_type,
     is_python_type,
     needs_build,
@@ -60,6 +61,11 @@ def step_install_deps(proj):
                     env=npm_env, run_as=user)
         run_cmd(["npm", "rebuild"], cwd=dest_dir, env=npm_env, run_as=user, check=False)
 
+    elif is_compose_type(proj):
+        compose_file = proj.get("compose_file", "docker-compose.yml")
+        run_cmd(["docker", "compose", "-f", compose_file, "pull", "--quiet"],
+                cwd=dest_dir, check=False)
+
 
 def step_build(proj):
     if not needs_build(proj):
@@ -68,6 +74,12 @@ def step_build(proj):
     if not os.path.isdir(dest_dir):
         raise DeployError(f"Deployment directory does not exist: {dest_dir}")
     user = proj["user"]
+
+    if is_compose_type(proj):
+        compose_file = proj.get("compose_file", "docker-compose.yml")
+        run_cmd(["docker", "compose", "-f", compose_file, "build"], cwd=dest_dir)
+        return
+
     build_cmd = proj.get("build_cmd", "npm run build")
     build_env = {}
     if is_node_type(proj):

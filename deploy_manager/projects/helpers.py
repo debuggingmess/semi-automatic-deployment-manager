@@ -52,6 +52,10 @@ def is_node_type(proj):
     return get_type_meta(proj).get("runtime") == "node"
 
 
+def is_compose_type(proj):
+    return get_type_meta(proj).get("runtime") == "compose"
+
+
 def needs_service(proj):
     return get_type_meta(proj).get("needs_service", True)
 

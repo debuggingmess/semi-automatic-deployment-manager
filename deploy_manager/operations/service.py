@@ -41,6 +41,28 @@ def _build_unit_lines(description, user, working_dir, exec_start, env_file=None,
     return "\n".join(lines) + "\n"
 
 
+def _build_compose_unit(description, user, working_dir, exec_start, exec_stop, env_file=None):
+    lines = [
+        "[Unit]", f"Description={description}",
+        "After=network.target docker.service",
+        "Requires=docker.service",
+        "",
+        "[Service]", "Type=oneshot", "RemainAfterExit=yes",
+        f"User={user}", f"Group={user}",
+        f"WorkingDirectory={working_dir}",
+        f"ExecStart=/bin/bash -c '{exec_start}'",
+        f"ExecStop=/bin/bash -c '{exec_stop}'",
+    ]
+    if env_file:
+        lines.append(f"EnvironmentFile={env_file}")
+    lines.extend([
+        "StandardOutput=journal", "StandardError=journal",
+        f"SyslogIdentifier={description}",
+        "", "[Install]", "WantedBy=multi-user.target",
+    ])
+    return "\n".join(lines) + "\n"
+
+
 def generate_service_unit(proj, port, entry_point, workers=2, npm_script=None, env_file=None):
     dest_dir = get_dest_dir(proj)
     ptype = proj["type"]
@@ -77,6 +99,13 @@ def generate_service_unit(proj, port, entry_point, workers=2, npm_script=None, e
         extra_env["PORT"] = str(port)
         extra_env["NPM_CONFIG_CACHE"] = os.path.join(home_dir, ".npm")
 
+    elif ptype == "compose":
+        compose_file = proj.get("compose_file", "docker-compose.yml")
+        compose_bin = "docker compose"
+        exec_start = f"{compose_bin} -f {compose_file} up -d --remove-orphans"
+        exec_stop  = f"{compose_bin} -f {compose_file} down"
+        return _build_compose_unit(desc, user, dest_dir, exec_start, exec_stop, env_file)
+
     else:
         raise DeployError(f"Cannot generate service for type: {ptype}")
 
@@ -98,6 +127,26 @@ def create_service_file(proj, interactive=True):
     env_file = env_file_path if os.path.isfile(env_file_path) else None
     workers = 2
     npm_script = proj.get("npm_script")
+
+    if ptype == "compose":
+        compose_file = proj.get("compose_file", "docker-compose.yml")
+        if interactive:
+            print(f"\n  Creating systemd service: {service_name}")
+            print(f"  Type: compose | User: {proj['user']} | Dir: {dest_dir}")
+            cf_input = input(f"  Compose file [{compose_file}]: ").strip()
+            if cf_input:
+                compose_file = cf_input
+        unit_content = generate_service_unit(proj, port, entry_point, env_file=env_file)
+        service_path = os.path.join(SYSTEMD_DIR, service_name)
+        if os.path.isfile(service_path) and interactive:
+            if not confirm(f"  {service_path} exists. Overwrite?"):
+                return
+        with open(service_path, "w") as f:
+            f.write(unit_content)
+        ensure_system_user(proj["user"])
+        run_cmd(["systemctl", "daemon-reload"])
+        run_cmd(["systemctl", "enable", service_name])
+        return
 
     if interactive:
         print(f"\n  Creating systemd service: {service_name}")

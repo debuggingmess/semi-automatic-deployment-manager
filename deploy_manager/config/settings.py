@@ -12,6 +12,7 @@
 #     "nodeapi": "/srv/nodeapi",
 #     "nextapp": "/srv/nextapp",
 #     "react":   "/srv/react",
+#     "compose": "/srv/compose",
 # }
 # BACKUP_BASE = "/srv/bak"
 
@@ -26,16 +27,18 @@
 #     "nodeapi": ["node_modules/", "dist/"],
 #     "nextapp": ["node_modules/", ".next/"],
 #     "react":   ["node_modules/", "build/", "dist/"],
+#     "compose": [],
 # }
 
 # runtime: python | node | static
 # server:  uvicorn | gunicorn | node | npm | nginx-static
 # TYPE_META = {
-#     "fastapi": {"runtime": "python",  "server": "uvicorn",      "needs_build": False, "needs_service": True},
-#     "django":  {"runtime": "python",  "server": "gunicorn",     "needs_build": False, "needs_service": True},
-#     "nodeapi": {"runtime": "node",    "server": "node",         "needs_build": False, "needs_service": True},
-#     "nextapp": {"runtime": "node",    "server": "npm",          "needs_build": True,  "needs_service": True},
-#     "react":   {"runtime": "node",    "server": "nginx-static", "needs_build": True,  "needs_service": False},
+#     "fastapi": {"runtime": "python",  "server": "uvicorn",        "needs_build": False, "needs_service": True},
+#     "django":  {"runtime": "python",  "server": "gunicorn",       "needs_build": False, "needs_service": True},
+#     "nodeapi": {"runtime": "node",    "server": "node",           "needs_build": False, "needs_service": True},
+#     "nextapp": {"runtime": "node",    "server": "npm",            "needs_build": True,  "needs_service": True},
+#     "react":   {"runtime": "node",    "server": "nginx-static",   "needs_build": True,  "needs_service": False},
+#     "compose": {"runtime": "compose", "server": "docker-compose", "needs_build": False, "needs_service": True},
 # }
 
 # BACKUP_RETENTION = 5
